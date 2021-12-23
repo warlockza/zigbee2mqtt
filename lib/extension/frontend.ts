@@ -1,23 +1,21 @@
 import http from 'http';
-import serveStatic from 'serve-static';
+import gzipStatic, {RequestHandler} from 'connect-gzip-static';
 import finalhandler from 'finalhandler';
 import logger from '../util/logger';
-// @ts-ignore
 import frontend from 'zigbee2mqtt-frontend';
 import WebSocket from 'ws';
 import net from 'net';
 import url from 'url';
 import * as settings from '../util/settings';
-import * as utils from '../util/utils';
-// @ts-ignore
+import utils from '../util/utils';
 import stringify from 'json-stable-stringify-without-jsonify';
-import ExtensionTS from './extensionts';
+import Extension from './extension';
 import bind from 'bind-decorator';
 
 /**
  * This extension servers the frontend
  */
-class Frontend extends ExtensionTS {
+export default class Frontend extends Extension {
     private mqttBaseTopic = settings.get().mqtt.base_topic;
     private host = settings.get().frontend.host || '0.0.0.0';
     private port = settings.get().frontend.port || 8080;
@@ -25,12 +23,12 @@ class Frontend extends ExtensionTS {
     private retainedMessages = new Map();
     private server: http.Server;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private fileServer: serveStatic.RequestHandler<any>;
+    private fileServer: RequestHandler;
     private wss: WebSocket.Server = null;
 
-    constructor(zigbee: Zigbee, mqtt: MQTT, state: TempState, publishEntityState: PublishEntityState,
+    constructor(zigbee: Zigbee, mqtt: MQTT, state: State, publishEntityState: PublishEntityState,
         eventBus: EventBus, enableDisableExtension: (enable: boolean, name: string) => Promise<void>,
-        restartCallback: () => void, addExtension: (extension: ExternalConverterClass) => void) {
+        restartCallback: () => void, addExtension: (extension: Extension) => Promise<void>) {
         super(zigbee, mqtt, state, publishEntityState, eventBus, enableDisableExtension, restartCallback, addExtension);
         this.eventBus.onMQTTMessagePublished(this, this.onMQTTPublishMessage);
     }
@@ -39,14 +37,16 @@ class Frontend extends ExtensionTS {
         this.server = http.createServer(this.onRequest);
         this.server.on('upgrade', this.onUpgrade);
 
-        /* istanbul ignore next */ // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const options = {setHeaders: (res: any, path: any): void => {
-            if (path.endsWith('index.html')) {
-                res.setHeader('Cache-Control', 'no-store');
-            }
-        }};
-
-        this.fileServer = serveStatic(frontend.getPath(), options);
+        /* istanbul ignore next */
+        const options = {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setHeaders: (res: any, path: string): void => {
+                if (path.endsWith('index.html')) {
+                    res.setHeader('Cache-Control', 'no-store');
+                }
+            },
+        };
+        this.fileServer = gzipStatic(frontend.getPath(), options);
         this.wss = new WebSocket.Server({noServer: true});
         this.wss.on('connection', this.onWebSocketConnection);
 
@@ -99,27 +99,27 @@ class Frontend extends ExtensionTS {
             ws.send(stringify({topic: key, payload: value}));
         }
 
-        for (const device of this.zigbee.getClients()) {
+        for (const device of this.zigbee.devices(false)) {
             let payload: KeyValue = {};
-            if (this.state.exists(device.ieeeAddr)) {
-                payload = {...payload, ...this.state.get(device.ieeeAddr)};
+            if (this.state.exists(device)) {
+                payload = {...payload, ...this.state.get(device)};
             }
 
             const lastSeen = settings.get().advanced.last_seen;
             /* istanbul ignore if */
             if (lastSeen !== 'disable') {
-                payload.last_seen = utils.formatDate(device.lastSeen, lastSeen);
+                payload.last_seen = utils.formatDate(device.zh.lastSeen, lastSeen);
             }
 
-            if (device.zhDevice.linkquality !== undefined) {
-                payload.linkquality = device.zhDevice.linkquality;
+            if (device.zh.linkquality !== undefined) {
+                payload.linkquality = device.zh.linkquality;
             }
 
             ws.send(stringify({topic: device.name, payload}));
         }
     }
 
-    @bind private onMQTTPublishMessage(data: EventMQTTMessagePublished): void {
+    @bind private onMQTTPublishMessage(data: eventdata.MQTTMessagePublished): void {
         if (data.topic.startsWith(`${this.mqttBaseTopic}/`)) {
             // Send topic without base_topic
             const topic = data.topic.substring(this.mqttBaseTopic.length + 1);
@@ -139,5 +139,3 @@ class Frontend extends ExtensionTS {
         }
     }
 }
-
-module.exports = Frontend;

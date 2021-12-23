@@ -5,13 +5,8 @@ const mock = {
     end: jest.fn(),
     subscribe: jest.fn(),
     reconnecting: false,
-    on: (type, handler) => {
-        if (type === 'connect') {
-            handler();
-        }
-
-        events[type] = handler
-    },
+    on: jest.fn(),
+    stream: {setMaxListeners: jest.fn()}
 };
 
 const mockConnect = jest.fn().mockReturnValue(mock);
@@ -20,6 +15,18 @@ jest.mock('mqtt', () => {
   return {connect: mockConnect};
 });
 
+const restoreOnMock = () => {
+    mock.on.mockImplementation((type, handler) => {
+        if (type === 'connect') {
+            handler();
+        }
+
+        events[type] = handler
+    });
+}
+
+restoreOnMock();
+
 module.exports = {
-    events, ...mock, connect: mockConnect, mock,
+    events, ...mock, connect: mockConnect, mock, restoreOnMock
 };
