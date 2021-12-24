@@ -1,0 +1,21 @@
+{
+    "0x60a423fffe2da2f8": {
+        "contact": true,
+        "tamper": false,
+        "battery_low": false,
+        "battery": 62,
+        "voltage": 2700
+    },
+    "0x60a423fffe2db47f": {
+        "contact": false,
+        "tamper": false,
+        "battery_low": false,
+        "battery": 86,
+        "voltage": 2900
+    },
+    "0xcc86ecfffeb03c3c": {
+        "occupancy": true,
+        "tamper": false,
+        "battery_low": false
+    }
+}

@@ -6773,7 +6773,7 @@
       "integrity": "sha512-zDjoKO932Yszvzq8WtbIFMXHwAT2MOxpWC9s6djw2tvjdRESWw3au6l+0xDMatMhNWVoVaVNkDXF+r/eyoBUVA==",
       "requires": {
         "glossy": "^0.1.7",
-        "unix-dgram": "2.0.3"
+        "unix-dgram": "2.0.4"
       }
     },
     "winston-transport": {
